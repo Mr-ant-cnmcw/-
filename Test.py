@@ -36,7 +36,7 @@ def draw_custom_hand(frame, hand_landmarks):
         start_pos = (int(start_point.x * w), int(start_point.y * h))
         end_pos = (int(end_point.x * w), int(end_point.y * h))
         
-        cv2.line(frame, start_pos, end_pos, (255, 255, 255), 2)
+        cv2.line(frame, start_pos, end_pos, (255, 255, 255), 1)
     
     # 绘制每根手指的连线（保持不同颜色）
     for finger_indices, color in FINGER_CONNECTIONS:
@@ -50,7 +50,7 @@ def draw_custom_hand(frame, hand_landmarks):
             start_pos = (int(start_point.x * w), int(start_point.y * h))
             end_pos = (int(end_point.x * w), int(end_point.y * h))
             
-            cv2.line(frame, start_pos, end_pos, color, 3)
+            cv2.line(frame, start_pos, end_pos, color, 1)
     
     # 3. 绘制所有关键点 - 统一为白框红圆
     # 首先绘制红色实心圆（内部）
