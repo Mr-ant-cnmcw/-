@@ -145,7 +145,7 @@ def count_fingers(hand_landmarks, handedness="Right"):
     if total_fingers == 0:
         # 检查是不是9
         if calculate_angle(hand_landmarks.landmark[8],wrist,hand_landmarks.landmark[6]) < 135 and \
-           calculate_angle(hand_landmarks.landmark[6],hand_landmarks.landmark[5],wrist)>120:
+           calculate_angle(hand_landmarks.landmark[6],hand_landmarks.landmark[5],wrist)>140:
             detected_number = 9
         else:
             detected_number = 0
@@ -153,7 +153,7 @@ def count_fingers(hand_landmarks, handedness="Right"):
     if total_fingers == 1:
         # 检查是不是9
         if calculate_angle(hand_landmarks.landmark[8],wrist,hand_landmarks.landmark[6]) < 135 and \
-           calculate_angle(hand_landmarks.landmark[6],hand_landmarks.landmark[5],wrist)>120:
+           calculate_angle(hand_landmarks.landmark[6],hand_landmarks.landmark[5],wrist)>150:
             detected_number = 9
         else:
             detected_number = "Good!"
