@@ -63,7 +63,26 @@ def calculate_angle(a, b, c):
     
     return angle
 
-# 计算手指角度
+#手指状态匹配映射表
+def fig_status(status):
+    status_dict = {
+        0: 0,
+        1: "Good!",
+        2: 1, 
+        3: 7,
+        4: "F**k You!",
+        6: 2,
+        7: 8,
+        14: 3,
+        17: 6,
+        19: "Yeah!",
+        28: "OK!",
+        30: 4,
+        31: 5
+    }
+    return status_dict.get(status, "Unknown Pose")
+
+
 
 
 def count_fingers(hand_landmarks, handedness="Right"):
@@ -91,17 +110,17 @@ def count_fingers(hand_landmarks, handedness="Right"):
 
 
         angle = calculate_angle(tip, pip, mcp)
-        
+        # 计算手指角度
         # 判断手指是否伸直：计算手指角度
         # 左手需要反向判断，因为坐标系镜像
         if handedness == "Right":
             angle = calculate_angle(tip, pip, mcp)
             if angle > 150:  # 如果角度接近180度（伸直），则认为手指伸直,阈值可以根据实际情况调整，通常150-180度可以认为是伸直
-                fingers_up[i] = 1
+                fingers_up[i] = 2**i
         else:  # 左手
             angle = calculate_angle(tip, pip, mcp)
             if angle > 150:  # 角度阈值
-                fingers_up[i] = 1
+                fingers_up[i] = 2**i
     
     # 2. 判断拇指（需要特殊处理）
     thumb_tip = hand_landmarks.landmark[FINGER_TIPS[0]]
@@ -111,18 +130,17 @@ def count_fingers(hand_landmarks, handedness="Right"):
     # 计算拇指的张开角度
     if handedness == "Right":
         # 右手
-        if calculate_angle(thumb_tip, thumb_ip, thumb_mcp) > 150:
+        if calculate_angle(thumb_tip, thumb_ip, thumb_mcp) > 155:
             fingers_up[0] = 1
     else:  # 左手
-        if calculate_angle(thumb_tip, thumb_ip, thumb_mcp) > 150:
+        if calculate_angle(thumb_tip, thumb_ip, thumb_mcp) > 155:
             fingers_up[0] = 1
     
     # 3. 计算伸直的手指总数
     total_fingers = sum(fingers_up)
     
     # 4. 特殊手势识别（数字0-5）
-    detected_number = total_fingers  # 默认对应数字
-    
+    detected_number = fig_status(total_fingers)
     # 数字0：握拳（没有手指伸直，但手指都弯曲）
     if total_fingers == 0:
         # 检查是否真的是握拳（不是其他手势）
@@ -136,18 +154,22 @@ def count_fingers(hand_landmarks, handedness="Right"):
         if all_fingers_bent:
             detected_number = 0
     
-    # 数字5：五指张开（特殊检查）
-    elif total_fingers == 5:
-        # 确保拇指确实张开（不是误判）
-        thumb_angle = math.atan2(thumb_tip.y - thumb_mcp.y, thumb_tip.x - thumb_mcp.x)
-        if abs(thumb_angle) > 0.3:  # 拇指张开角度足够大
-            detected_number = 5
+    # 数字7和1：拇指和食指指的角度        
+    elif total_fingers == 3:
+        if calculate_angle(hand_landmarks.landmark[4],wrist,hand_landmarks.landmark[8] ) > 30 :
+            detected_number = 7
         else:
-            detected_number = 4  # 可能是4
-    
-    # 数字1-4：直接对应伸直手指数
+            detected_number = 1
+
+    #数字8和2：拇指和中指的角度
+    elif total_fingers ==7:
+        if calculate_angle(hand_landmarks.landmark[4],wrist,hand_landmarks.landmark[12] ) >30:
+            detected_number =8
+        else:
+            detected_number =2        
+    # 其他正常的：
     else:
-        detected_number = total_fingers
+        detected_number = fig_status(total_fingers)
     
     return fingers_up, detected_number
 
@@ -197,10 +219,10 @@ def draw_custom_hand(frame, hand_landmarks):
 # 如果有检测到的数字，显示在手腕上方
     if detected_number is not None:
         wrist = hand_landmarks.landmark[0]
-        text_pos = (int(wrist.x * w) - 40, int(wrist.y * h) - 60)
+        text_pos = (int(wrist.x * w) - 20, int(wrist.y * h) - 40)# 文本位置
         
         # 创建半透明背景
-        text = f"Number: {detected_number}"
+        text = f"Mean: {detected_number}"
         font = cv2.FONT_HERSHEY_DUPLEX
         font_scale = 1.0
         thickness = 2
@@ -261,7 +283,7 @@ while cap.isOpened():
             fingers_status, detected_number = count_fingers(hand_landmarks, handedness)
             
             # 在图像左上角显示手指状态
-            status_text = f"Fingers: {sum(fingers_status)} ["
+            status_text = f"Fingers'situation: ["
             for i, status in enumerate(fingers_status):
                 status_text += 'UP' if status else 'DOWN'
                 if i < 4:
