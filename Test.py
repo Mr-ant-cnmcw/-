@@ -143,17 +143,22 @@ def count_fingers(hand_landmarks, handedness="Right"):
     detected_number = fig_status(total_fingers)
     # 数字0：握拳（没有手指伸直，但手指都弯曲）
     if total_fingers == 0:
-        # 检查是否真的是握拳（不是其他手势）
-        all_fingers_bent = True
-        for i in range(5):
-            tip = hand_landmarks.landmark[FINGER_TIPS[i]]
-            pip = hand_landmarks.landmark[FINGER_PIPS[i]]
-            if tip.y < pip.y:  # 如果有手指伸直
-                all_fingers_bent = False
-                break
-        if all_fingers_bent:
+        # 检查是不是9
+        if calculate_angle(hand_landmarks.landmark[8],wrist,hand_landmarks.landmark[6]) < 135 and \
+           calculate_angle(hand_landmarks.landmark[6],hand_landmarks.landmark[5],wrist)>120:
+            detected_number = 9
+        else:
             detected_number = 0
     
+    if total_fingers == 1:
+        # 检查是不是9
+        if calculate_angle(hand_landmarks.landmark[8],wrist,hand_landmarks.landmark[6]) < 135 and \
+           calculate_angle(hand_landmarks.landmark[6],hand_landmarks.landmark[5],wrist)>120:
+            detected_number = 9
+        else:
+            detected_number = "Good!"
+
+
     # 数字7和1：拇指和食指指的角度        
     elif total_fingers == 3:
         if calculate_angle(hand_landmarks.landmark[4],wrist,hand_landmarks.landmark[8] ) > 30 :
