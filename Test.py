@@ -1,8 +1,28 @@
 import cv2
 import mediapipe as mp
+import numpy as np
+import pyautogui
+import math
+
+pyautogui.FAILSAFE = False  # 禁用安全保护
 
 mp_hands = mp.solutions.hands
 mp_drawing = mp.solutions.drawing_utils
+
+INDEX_FINGER_TIP = 8  # 食指尖端索引
+
+
+# 获取屏幕尺寸
+screen_width, screen_height = pyautogui.size()
+
+
+#鼠标控制参数
+MOUSE_SCALING = 1.5     # 鼠标移动缩放因子
+MOUSE_OFFSET_X = 50     # X轴偏移量
+MOUSE_OFFSET_Y = 50     # Y轴偏移量
+MOUSE_SMOOTHING = True  # 是否启用鼠标平滑
+mouse_mode = False      # 鼠标控制模式开关
+
 
 # 1. 定义每根手指的连接关系和颜色（只用于连线）
 FINGER_CONNECTIONS = [
@@ -30,8 +50,7 @@ FINGER_PIPS = [2, 6, 10, 14, 18]  # 对应手指的第二个关节（作为弯�
 FINGER_MCP = [1, 5, 9, 13, 17]    # 对应手指的掌指关节
 
 
-
-
+#================================================================#
 
 # 计算手指的角度：指尖-第二关节-掌根三个点的夹角
 def calculate_angle(a, b, c):
@@ -65,23 +84,11 @@ def calculate_angle(a, b, c):
 #手指状态匹配映射表
 def fig_status(status):
     status_dict = {
-        0: 0,
-        1: "Good!",
-        2: 1, 
-        3: 7,
-        4: "F**k You!",
-        6: 2,
-        7: 8,
-        14: 3,
-        17: 6,
-        19: "Yeah!",
-        28: "OK!",
-        30: 4,
-        31: 5
+
     }
     return status_dict.get(status, "Unknown Pose")
 
-
+#============================================================================#
 
 
 def count_fingers(hand_landmarks, handedness="Right"):
@@ -135,51 +142,101 @@ def count_fingers(hand_landmarks, handedness="Right"):
         if calculate_angle(thumb_tip, thumb_ip, thumb_mcp) > 155:
             fingers_up[0] = 1
     
-    # 3. 计算伸直的手指总数
-    total_fingers = sum(fingers_up)
+    # 3. 计算手指系数
+    detected_number = fig_status(sum(fingers_up))
     
-    # 4. 特殊手势识别（数字0-5）
-    detected_number = fig_status(total_fingers)
-    # 数字0：握拳（没有手指伸直，但手指都弯曲）
-    if total_fingers == 0:
-        # 检查是否真的是握拳（不是其他手势）
-        all_fingers_bent = True
-        for i in range(5):
-            tip = hand_landmarks.landmark[FINGER_TIPS[i]]
-            pip = hand_landmarks.landmark[FINGER_PIPS[i]]
-            if tip.y < pip.y:  # 如果有手指伸直
-                all_fingers_bent = False
-                break
-        if all_fingers_bent:
-            detected_number = 0
-    
-    # 数字7和1：拇指和食指指的角度        
-    elif total_fingers == 3:
-        if calculate_angle(hand_landmarks.landmark[4],wrist,hand_landmarks.landmark[8] ) > 30 :
-            detected_number = 7
-        else:
-            detected_number = 1
-
-    #数字8和2：拇指和中指的角度
-    elif total_fingers ==7:
-        if calculate_angle(hand_landmarks.landmark[4],wrist,hand_landmarks.landmark[12] ) >30:
-            detected_number =8
-        else:
-            detected_number =2        
-    # 其他正常的：
-    else:
-        detected_number = fig_status(total_fingers)
     
     return fingers_up, detected_number
 
+#============================================================================#
+def control_mouse_with_index_finger(hand_landmarks, frame_width, frame_height, handedness="Right"):
+    """
+    使用食指指尖控制鼠标
+    
+    参数:
+        hand_landmarks: MediaPipe检测到的手部关键点
+        frame_width: 摄像头帧的宽度
+        frame_height: 摄像头帧的高度
+        handedness: 手性（"Left" 或 "Right"）
+    """
+    global mouse_mode, click_gesture_active
+    
+    # 获取食指尖端位置
+    index_tip = hand_landmarks.landmark[INDEX_FINGER_TIP]
+    
+    # 打印调试信息（可选）
+    # print(f"食指原始坐标: x={index_tip.x:.3f}, y={index_tip.y:.3f}")
+    
+    # 将坐标转换为屏幕坐标
+    # 注意：MediaPipe的坐标是归一化的 [0, 1]
+    
+    # 方法1：直接映射（最简单）
+    screen_x = int((1 - index_tip.x) * screen_width * MOUSE_SCALING)  # 镜像翻转
+    #screen_x = int(index_tip.x * screen_width * MOUSE_SCALING)
+    screen_y = int((1 - index_tip.y) * screen_height * MOUSE_SCALING)
+    
+    # 方法2：如果摄像头画面是镜像的，可能需要翻转X坐标
+    # 这取决于您是否在显示时使用了 cv2.flip(frame, 1)
+    # screen_x = int((1 - index_tip.x) * screen_width * MOUSE_SCALING)  # 镜像翻转
+
+    BORDER_MARGIN = 50  # 距离屏幕边缘至少50像素
+    
+    screen_x = max(BORDER_MARGIN, min(screen_x, screen_width - 1))
+    screen_y = max(BORDER_MARGIN, min(screen_y, screen_height - 1))
 
 
+    
+    # 边界检查（在缩放后进行）
+    screen_x = max(0, min(screen_x, screen_width - 1))
+    screen_y = max(0, min(screen_y, screen_height - 1))
+    
+    # 添加平滑处理
+    # if MOUSE_SMOOTHING:
+    #     mouse_smoother.add_point(screen_x, screen_y)
+    #     smoothed_point = mouse_smoother.get_smoothed_point()
+    #     if smoothed_point:
+    #         screen_x, screen_y = int(smoothed_point[0]), int(smoothed_point[1])
+    
+    # 防抖动：检查移动距离是否足够大
+    if hasattr(control_mouse_with_index_finger, 'last_position'):
+        last_x, last_y = control_mouse_with_index_finger.last_position
+        distance = ((screen_x - last_x)**2 + (screen_y - last_y)**2)**0.5
+        if distance < 5:  # 移动距离小于5像素时不更新，减少抖动
+            return
+    
+    control_mouse_with_index_finger.last_position = (screen_x, screen_y)
+    
+    # 移动鼠标（添加平滑移动）
+    try:
+        pyautogui.moveTo(screen_x, screen_y, duration=0.1)
+    except Exception as e:
+        print(f"鼠标移动错误类型: {type(e).__name__}")
+        print(f"详细错误信息: {e}")
+        print(f"尝试移动到的坐标: ({screen_x}, {screen_y})")
+        print(f"屏幕尺寸: {screen_width}x{screen_height}")
+        # 可以在这里重置鼠标位置
+        # pyautogui.moveTo(screen_width // 2, screen_height // 2)
 
 
-# 2. 自定义绘制函数 - 关键点改为白框红圆
+#================================================================#
+
+# 检查鼠标控制手势（只有食指伸直）
+def check_mouse_control_gesture(fingers_up):
+    """
+    检查是否只有食指伸直（鼠标控制手势）
+    """
+    # 只有食指伸直（食指=2，其他都是0）
+    return (fingers_up[1] == 2 and 
+            fingers_up[0] == 0 and 
+            fingers_up[2] == 0 and 
+            fingers_up[3] == 0 and 
+            fingers_up[4] == 0)
+
+#================================================================#
+
+#  自定义绘制函数 - 关键点改为白框红圆
 def draw_custom_hand(frame, hand_landmarks):
     h, w, _ = frame.shape
-    
     # 绘制手掌基部连接 (白色，稍细)
     for start_idx, end_idx in PALM_CONNECTIONS:
         start_point = hand_landmarks.landmark[start_idx]
@@ -205,15 +262,24 @@ def draw_custom_hand(frame, hand_landmarks):
             cv2.line(frame, start_pos, end_pos, color, 2)
     
     # 3. 绘制所有关键点 - 统一为白框红圆
-    # 首先绘制红色实心圆（内部）
-    for landmark in hand_landmarks.landmark:
+    # 首先绘制红色实心圆,食指指尖特殊处理（内部）
+    for idx, landmark in enumerate(hand_landmarks.landmark):
         center = (int(landmark.x * w), int(landmark.y * h))
-        cv2.circle(frame, center, 5, (0, 0, 255), -1)  # 红色实心圆
+    
+        if idx == 8:  # 食指指尖（索引8）
+            cv2.circle(frame, center, 15, (255, 0, 0), -1)  # 蓝色实心圆，更大
+        else:
+            cv2.circle(frame, center, 5, (0, 0, 255), -1)  # 红色实心圆
     
     # 然后绘制白色边框（外部）
     for landmark in hand_landmarks.landmark:
         center = (int(landmark.x * w), int(landmark.y * h))
         cv2.circle(frame, center, 6, (255, 255, 255), 1)  # 白色边框，线宽1
+
+#================================================================#
+
+
+
 
 # 初始化手部模型
 hands = mp_hands.Hands(
@@ -236,8 +302,27 @@ while cap.isOpened():
     image_rgb = cv2.cvtColor(frame, cv2.COLOR_BGR2RGB)
     results = hands.process(image_rgb)
 
-    # 如果检测到手，使用自定义绘制函数
+    # 如果检测到手:
     if results.multi_hand_landmarks:
+        for i, hand_landmarks in enumerate(results.multi_hand_landmarks):
+            # 获取手性
+            handedness = results.multi_handedness[i].classification[0].label
+            
+            # 统计手指状态
+            fingers_up, detected_number = count_fingers(hand_landmarks, handedness)
+            
+            # 检查是否为鼠标控制手势
+            if check_mouse_control_gesture(fingers_up):
+                mouse_mode = True
+                # 使用食指控制鼠标，传入frame尺寸
+                control_mouse_with_index_finger(
+                    hand_landmarks, 
+                    frame.shape[1],  # 宽度
+                    frame.shape[0],  # 高度
+                    handedness
+                )
+
+         # 使用自定义绘制函数       
         for hand_landmarks in results.multi_hand_landmarks:
             draw_custom_hand(frame, hand_landmarks)
 
