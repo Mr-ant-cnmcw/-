@@ -50,6 +50,31 @@ FINGER_PIPS = [2, 6, 10, 14, 18]  # 对应手指的第二个关节（作为弯�
 FINGER_MCP = [1, 5, 9, 13, 17]    # 对应手指的掌指关节
 
 
+
+
+# 平滑滤波器（减少鼠标抖动）
+class MouseSmoother:
+    def __init__(self, buffer_size=5):
+        self.buffer_size = buffer_size
+        self.x_buffer = []
+        self.y_buffer = []
+        
+    def add_point(self, x, y):
+        self.x_buffer.append(x)
+        self.y_buffer.append(y)
+        
+        if len(self.x_buffer) > self.buffer_size:
+            self.x_buffer.pop(0)
+            self.y_buffer.pop(0)
+    
+    def get_smoothed_point(self):
+        if not self.x_buffer:
+            return None
+        return np.mean(self.x_buffer), np.mean(self.y_buffer)
+
+# 鼠标平滑器实例
+mouse_smoother = MouseSmoother(buffer_size=3)
+
 #================================================================#
 
 # 计算手指的角度：指尖-第二关节-掌根三个点的夹角
@@ -191,11 +216,11 @@ def control_mouse_with_index_finger(hand_landmarks, frame_width, frame_height, h
     screen_y = max(0, min(screen_y, screen_height - 1))
     
     # 添加平滑处理
-    # if MOUSE_SMOOTHING:
-    #     mouse_smoother.add_point(screen_x, screen_y)
-    #     smoothed_point = mouse_smoother.get_smoothed_point()
-    #     if smoothed_point:
-    #         screen_x, screen_y = int(smoothed_point[0]), int(smoothed_point[1])
+    if MOUSE_SMOOTHING:
+        mouse_smoother.add_point(screen_x, screen_y)
+        smoothed_point = mouse_smoother.get_smoothed_point()
+        if smoothed_point:
+            screen_x, screen_y = int(smoothed_point[0]), int(smoothed_point[1])
     
     # 防抖动：检查移动距离是否足够大
     if hasattr(control_mouse_with_index_finger, 'last_position'):
