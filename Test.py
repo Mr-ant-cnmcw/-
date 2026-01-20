@@ -4,16 +4,27 @@ import numpy as np
 import pyautogui
 import math
 
-pyautogui.FAILSAFE = False  # 禁用安全保护
 
+# 禁用安全保护
+pyautogui.FAILSAFE = False  
+
+# 摄像头显示开关
+camera_on = True  
+
+
+# 手部模型初始化
 mp_hands = mp.solutions.hands
+
+# 绘图工具
 mp_drawing = mp.solutions.drawing_utils
 
-INDEX_FINGER_TIP = 8  # 食指尖端索引
-
-
-# 获取屏幕尺寸
+#获取屏幕尺寸
 screen_width, screen_height = pyautogui.size()
+
+# 食指尖端索引
+INDEX_FINGER_TIP = 8  
+
+
 
 
 #鼠标控制参数
@@ -77,7 +88,7 @@ mouse_smoother = MouseSmoother(buffer_size=3)
 
 #================================================================#
 
-# 计算手指的角度：指尖-第二关节-掌根三个点的夹角
+# 计算手指的角度：ab与bc之间的夹角
 def calculate_angle(a, b, c):
     """
     计算三个点之间的角度（b是顶点）
@@ -204,10 +215,10 @@ def control_mouse_with_index_finger(hand_landmarks, frame_width, frame_height, h
     # 这取决于您是否在显示时使用了 cv2.flip(frame, 1)
     # screen_x = int((1 - index_tip.x) * screen_width * MOUSE_SCALING)  # 镜像翻转
 
-    BORDER_MARGIN = 50  # 距离屏幕边缘至少50像素
+    # BORDER_MARGIN = 50  # 距离屏幕边缘至少50像素
     
-    screen_x = max(BORDER_MARGIN, min(screen_x, screen_width - 1))
-    screen_y = max(BORDER_MARGIN, min(screen_y, screen_height - 1))
+    # screen_x = max(BORDER_MARGIN, min(screen_x, screen_width - 1))
+    # screen_y = max(BORDER_MARGIN, min(screen_y, screen_height - 1))
 
 
     
@@ -346,12 +357,11 @@ while cap.isOpened():
                     frame.shape[0],  # 高度
                     handedness
                 )
-
-         # 使用自定义绘制函数       
-        for hand_landmarks in results.multi_hand_landmarks:
-            draw_custom_hand(frame, hand_landmarks)
-
-    cv2.imshow('Colored Hand Tracking with Red Dots', frame)
+        if camera_on:
+            # 使用自定义绘制函数       
+            for hand_landmarks in results.multi_hand_landmarks:
+                 draw_custom_hand(frame, hand_landmarks)
+            cv2.imshow('Colored Hand Tracking with Red Dots', frame)
     if cv2.waitKey(5) & 0xFF == 27:    # 按ESC退出
         break
 
